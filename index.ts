@@ -8,7 +8,7 @@ const app = express();
 // CORS middleware
 app.use((req, res, next) => {
   // Update CORS to allow your Vercel frontend URL
-  const allowedOrigins = ['http://localhost:5173', 'https://your-frontend-url.vercel.app'];
+  const allowedOrigins = ['http://localhost:5173', 'https://smart-scheduler-client.vercel.app'];
   const origin = req.headers.origin;
   
   if (origin && allowedOrigins.includes(origin)) {
@@ -16,7 +16,7 @@ app.use((req, res, next) => {
   }
   
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
   
   if (req.method === 'OPTIONS') {
@@ -59,44 +59,72 @@ app.use((req, res, next) => {
   next();
 });
 
-// Connect to MongoDB at startup
-let isConnected = false;
-const connectToDatabase = async () => {
-  if (!isConnected) {
-    await connectDB();
-    isConnected = true;
-  }
-};
-
 // Initialize routes
 let initializedApp: express.Application | null = null;
 const initializeApp = async () => {
-  if (!initializedApp) {
-    await connectToDatabase();
-    initializedApp = await registerRoutes(app);
+  try {
+    if (!initializedApp) {
+      console.log('Initializing application...');
+      await connectDB();
+      initializedApp = await registerRoutes(app);
+      console.log('Application initialized successfully');
+    }
+    return initializedApp;
+  } catch (error) {
+    console.error('Failed to initialize application:', error);
+    throw error;
   }
-  return initializedApp;
 };
 
 // Error handling middleware
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Global error handler caught:', err);
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
-  res.status(status).json({ message });
+  res.status(status).json({ 
+    error: message,
+    status: status 
+  });
 });
 
 // For local development
 if (process.env.NODE_ENV === 'development') {
   const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
   initializeApp().then(() => {
-    app.listen(port, "0.0.0.0", () => {
+    const server = app.listen(port, "0.0.0.0", () => {
       console.log(`Development server running on port ${port}`);
     });
+    return server;
+  }).catch(err => {
+    console.error('Failed to start development server:', err);
+    process.exit(1);
   });
 }
 
 // Export for Vercel
 export default async function handler(req: Request, res: Response) {
-  await initializeApp();
-  return app(req, res);
+  try {
+    console.log('Handler invoked with method:', req.method, 'path:', req.path);
+    
+    // Initialize app if needed
+    await initializeApp();
+    
+    // Handle the request
+    return new Promise((resolve, reject) => {
+      app(req, res, (err?: any) => {
+        if (err) {
+          console.error('Express middleware error:', err);
+          reject(err);
+        } else {
+          resolve(undefined);
+        }
+      });
+    });
+  } catch (error: any) {
+    console.error('Handler error:', error);
+    res.status(500).json({ 
+      error: 'Internal Server Error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 }
