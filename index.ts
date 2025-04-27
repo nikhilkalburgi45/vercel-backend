@@ -7,7 +7,7 @@ const app = express();
 
 // CORS middleware
 app.use((req, res, next) => {
-  // Update CORS to allow your Vercel frontend URL
+  // Update CORS to allow your frontend URL
   const allowedOrigins = ['http://localhost:5173', 'https://smart-scheduler-client.vercel.app'];
   const origin = req.headers.origin;
   
@@ -87,44 +87,13 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-// For local development
-if (process.env.NODE_ENV === 'development') {
-  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
-  initializeApp().then(() => {
-    const server = app.listen(port, "0.0.0.0", () => {
-      console.log(`Development server running on port ${port}`);
-    });
-    return server;
-  }).catch(err => {
-    console.error('Failed to start development server:', err);
-    process.exit(1);
+// Start the server
+const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+initializeApp().then(() => {
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`Server running on port ${port}`);
   });
-}
-
-// Export for Vercel
-export default async function handler(req: Request, res: Response) {
-  try {
-    console.log('Handler invoked with method:', req.method, 'path:', req.path);
-    
-    // Initialize app if needed
-    await initializeApp();
-    
-    // Handle the request
-    return new Promise((resolve, reject) => {
-      app(req, res, (err?: any) => {
-        if (err) {
-          console.error('Express middleware error:', err);
-          reject(err);
-        } else {
-          resolve(undefined);
-        }
-      });
-    });
-  } catch (error: any) {
-    console.error('Handler error:', error);
-    res.status(500).json({ 
-      error: 'Internal Server Error',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-}
+}).catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
