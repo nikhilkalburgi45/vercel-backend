@@ -6,14 +6,12 @@ console.log('Environment variables:', {
   NODE_ENV: process.env.NODE_ENV
 });
 
+let isConnected = false;
+
 export async function connectDB() {
   try {
-    console.log('Attempting to connect to MongoDB...');
-    console.log('Connection string (first 20 chars):', MONGODB_URI?.substring(0, 20) + '...');
-    console.log('Current connection state:', mongoose.connection.readyState);
-    
-    if (mongoose.connection.readyState === 1) {
-      console.log('Already connected to MongoDB');
+    if (isConnected) {
+      console.log('Using existing database connection');
       return;
     }
 
@@ -21,7 +19,13 @@ export async function connectDB() {
       throw new Error('MONGODB_URI is not defined');
     }
 
-    await mongoose.connect(MONGODB_URI);
+    const options = {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    };
+
+    await mongoose.connect(MONGODB_URI, options);
+    isConnected = true;
     console.log('Connected to MongoDB successfully');
   } catch (error: any) {
     console.error('MongoDB connection error:', error);
@@ -30,20 +34,23 @@ export async function connectDB() {
       message: error?.message || 'No error message',
       code: error?.code || 'No error code'
     });
-    process.exit(1);
+    // Don't exit process in serverless environment
+    throw error;
   }
 }
 
 export async function disconnectDB() {
   try {
-    if (mongoose.connection.readyState === 0) {
-      console.log('Already disconnected from MongoDB');
+    if (!isConnected) {
+      console.log('No active connection to disconnect');
       return;
     }
 
     await mongoose.disconnect();
+    isConnected = false;
     console.log('Disconnected from MongoDB successfully');
   } catch (error) {
     console.error('Error disconnecting from MongoDB:', error);
+    throw error;
   }
 } 

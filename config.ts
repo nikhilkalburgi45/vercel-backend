@@ -1,16 +1,13 @@
 import { config } from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load environment variables from .env file
-config({ path: resolve(__dirname, '.env') });
+// Only load .env file in development
+if (process.env.NODE_ENV !== 'production') {
+  config();
+}
 
 export const MONGODB_URI = process.env.MONGODB_URI;
 
+// Log environment status but don't exit
 if (!MONGODB_URI) {
-  console.error('MONGODB_URI is not defined in environment variables');
-  process.exit(1);
+  console.warn('Warning: MONGODB_URI is not defined in environment variables');
 } 
